@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GBP/USD ICT & Technicals Daily Bias AI</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%2338bdf8%22/></svg>" />
+    <link rel="stylesheet" href="static/styles.css" />
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="brand">
+                <span class="brand-dot"></span>
+                <div>
+                    <h1>ICT & Technicals Daily Bias Terminal</h1>
+                    <p class="subtitle">PDH/PDL Liquidity &bull; O(N) Fair Value Gaps &bull; Multi-TF Order Flow (NY Time)</p>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label for="pair-select">Pair</label>
+                    <select id="pair-select">
+                        <option value="GBPUSD" selected>GBP/USD</option>
+                        <option value="EURUSD">EUR/USD</option>
+                        <option value="USDJPY">USD/JPY</option>
+                        <option value="AUDUSD">AUD/USD</option>
+                        <option value="USDCAD">USD/CAD</option>
+                        <option value="XAUUSD">XAU/USD (Gold)</option>
+                    </select>
+                </div>
+
+                <div class="tf-group" role="group" aria-label="Chart Timeframe">
+                    <button class="tf-btn" data-tf="1d">1D</button>
+                    <button class="tf-btn" data-tf="4h">4H</button>
+                    <button class="tf-btn active" data-tf="1h">1H</button>
+                    <button class="tf-btn" data-tf="15m">15m</button>
+                </div>
+
+                <button id="refresh-btn" class="primary-btn">Refresh Live Data</button>
+            </div>
+        </header>
+
+        <div id="status-banner" class="status-banner hidden"></div>
+
+        <!-- Hero Bias Verdict Strip -->
+        <section class="bias-hero card">
+            <div class="bias-verdict">
+                <div class="eyebrow">DAILY BIAS VERDICT &bull; <span id="pair-title">GBP/USD</span></div>
+                <div class="verdict-row">
+                    <span id="bias-badge" class="bias-badge neutral">LOADING...</span>
+                    <div class="price-readout">
+                        <span class="price-value" id="current-price">---</span>
+                        <span class="ny-time" id="last-updated">NY Time: ---</span>
+                    </div>
+                </div>
+                <p id="exec-summary" class="exec-summary">Fetching multi-timeframe OHLC data and computing ICT & technical confluences...</p>
+            </div>
+
+            <div class="bias-metrics">
+                <div class="metric-box">
+                    <span class="metric-label">Confluence Score</span>
+                    <span class="metric-value" id="bias-score">0.0</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-center"></div>
+                        <div id="score-bar-fill" class="score-bar-fill"></div>
+                    </div>
+                    <span class="metric-sub" id="bias-confidence">Confidence: ---</span>
+                </div>
+                <div class="metric-box">
+                    <span class="metric-label">Draw on Liquidity (DOL)</span>
+                    <span class="metric-value accent" id="dol-target">---</span>
+                    <span class="metric-sub" id="dol-label">---</span>
+                </div>
+                <div class="metric-box">
+                    <span class="metric-label">Primary POI Zone</span>
+                    <span class="metric-value small-val" id="poi-zone">---</span>
+                </div>
+                <div class="metric-box">
+                    <span class="metric-label">Bias Invalidation</span>
+                    <span class="metric-value danger" id="invalidation-level">---</span>
+                    <span class="metric-sub" id="invalidation-reason">---</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Workspace Grid -->
+        <main class="main-grid">
+            <!-- Chart Card -->
+            <section class="card chart-card">
+                <div class="card-header">
+                    <div>
+                        <h2>Price Chart & ICT Levels (<span id="chart-tf-label">1H</span>)</h2>
+                        <span class="muted">Candlesticks with PDH, PDL, NY Midnight Open, 50% EQ, EMAs & Nearest FVG CE</span>
+                    </div>
+                    <div class="chart-toggles">
+                        <label><input type="checkbox" id="toggle-emas" checked /> EMAs (20/50/200)</label>
+                        <label><input type="checkbox" id="toggle-ict" checked /> PDH / PDL / MO</label>
+                        <label><input type="checkbox" id="toggle-fvg" checked /> Nearest FVG CE</label>
+                    </div>
+                </div>
+                <div id="chart-container" class="chart-container"></div>
+            </section>
+
+            <!-- Right Column: ICT Levels & Dealing Range -->
+            <aside class="side-stack">
+                <section class="card">
+                    <h2>Previous Day & Week Liquidity</h2>
+                    <div class="kv-grid">
+                        <div class="kv-item"><span>PDH (Buy-Side)</span><strong id="val-pdh">---</strong></div>
+                        <div class="kv-item"><span>PDL (Sell-Side)</span><strong id="val-pdl">---</strong></div>
+                        <div class="kv-item"><span>PDC (Prev Close)</span><strong id="val-pdc">---</strong></div>
+                        <div class="kv-item"><span>PWH / PWL</span><strong id="val-pw">---</strong></div>
+                    </div>
+                    <div class="pill-note" id="liquidity-state">---</div>
+                </section>
+
+                <section class="card">
+                    <h2>20-Day Dealing Range</h2>
+                    <div class="range-header">
+                        <span id="dr-low">Low: ---</span>
+                        <span id="dr-zone" class="zone-pill">---</span>
+                        <span id="dr-high">High: ---</span>
+                    </div>
+                    <div class="dr-track">
+                        <div class="dr-eq-line" title="50% Equilibrium"></div>
+                        <div id="dr-marker" class="dr-marker" style="left: 50%;"></div>
+                    </div>
+                    <div class="range-footer">
+                        <span>Discount (&lt;50%)</span>
+                        <span id="dr-eq">50% EQ: ---</span>
+                        <span>Premium (&gt;50%)</span>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <h2>NY Midnight & Killzones</h2>
+                    <div class="kv-list">
+                        <div class="kv-row"><span>NY Midnight Open (00:00)</span><strong id="val-mo">---</strong></div>
+                        <div class="kv-row"><span>Midnight Relation</span><strong id="val-mo-rel">---</strong></div>
+                        <div class="kv-row"><span>Asian Range (20:00-00:00)</span><strong id="val-asian">---</strong></div>
+                        <div class="kv-row"><span>Asian Liquidity</span><strong id="val-asian-status">---</strong></div>
+                        <div class="kv-row"><span>London KZ (02:00-05:00)</span><strong id="val-london">---</strong></div>
+                    </div>
+                </section>
+            </aside>
+        </main>
+
+        <!-- Second Row: Confluence Scorecard & Standard Technicals -->
+        <section class="two-col-grid">
+            <section class="card">
+                <div class="card-header">
+                    <h2>8-Factor ICT & Technical Confluence Scorecard</h2>
+                </div>
+                <div class="table-wrap">
+                    <table id="factors-table">
+                        <thead>
+                            <tr>
+                                <th>Factor</th>
+                                <th>Weight</th>
+                                <th>Vote</th>
+                                <th>Live Reading</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <h2>Standard Technicals Matrix</h2>
+                    <span class="muted" id="adr-summary">ADR: ---</span>
+                </div>
+                <div class="table-wrap">
+                    <table id="tech-table">
+                        <thead>
+                            <tr>
+                                <th>TF</th>
+                                <th>Structure</th>
+                                <th>EMA 20/50/200</th>
+                                <th>RSI (14)</th>
+                                <th>MACD</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <!-- Third Row: Active Unmitigated FVGs & AI Brief -->
+        <section class="two-col-grid">
+            <section class="card">
+                <div class="card-header">
+                    <h2>Active Unmitigated Fair Value Gaps</h2>
+                    <div class="fvg-tabs">
+                        <button class="fvg-tab active" data-fvgtf="1d">1D</button>
+                        <button class="fvg-tab" data-fvgtf="4h">4H</button>
+                        <button class="fvg-tab" data-fvgtf="1h">1H</button>
+                        <button class="fvg-tab" data-fvgtf="15m">15m</button>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table id="fvg-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Zone (Bottom – Top)</th>
+                                <th>50% CE</th>
+                                <th>Size</th>
+                                <th>Status</th>
+                                <th>Dist</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card ai-panel">
+                <div class="card-header">
+                    <h2>AI Pre-Session Strategist & Checklist</h2>
+                </div>
+
+                <div class="gameplan-grid">
+                    <div class="case-box bull-box">
+                        <h3>Bullish Factors</h3>
+                        <ul id="bull-list"></ul>
+                    </div>
+                    <div class="case-box bear-box">
+                        <h3>Bearish Factors</h3>
+                        <ul id="bear-list"></ul>
+                    </div>
+                </div>
+
+                <div class="checklist-box">
+                    <h3>Session Execution Checklist</h3>
+                    <ol id="checklist"></ol>
+                </div>
+
+                <details class="llm-drawer">
+                    <summary>Optional: Generate Live LLM Written Brief (Ollama / Groq / Gemini / OpenRouter)</summary>
+                    <div class="llm-form">
+                        <div class="llm-inputs">
+                            <select id="llm-provider">
+                                <option value="ollama">Local Ollama (Free, No Key)</option>
+                                <option value="groq">Groq (Free Tier Key)</option>
+                                <option value="gemini">Google Gemini (Free Tier Key)</option>
+                                <option value="openrouter">OpenRouter (Free Models)</option>
+                            </select>
+                            <input type="text" id="llm-model" placeholder="Model override (optional)" />
+                            <input type="password" id="llm-key" placeholder="API key (not needed for Ollama)" />
+                            <button id="llm-run-btn" class="primary-btn">Synthesize Brief</button>
+                        </div>
+                        <pre id="llm-output" class="llm-output hidden"></pre>
+                    </div>
+                </details>
+            </section>
+        </section>
+    </div>
+
+    <script src="static/client_engine.js"></script>
+    <script src="static/app.js"></script>
+</body>
+</html>
