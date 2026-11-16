@@ -74,7 +74,7 @@
         if (typeof pair !== "string") {
             throw new Error("Pair symbol must be a string.");
         }
-        const cleaned = pair.trim().toUpperCase().replace(/[/- ]/g, "");
+        const cleaned = pair.trim().toUpperCase().replace(/[-/ ]/g, "");
         if (!ALLOWED_PAIRS[cleaned]) {
             throw new Error(`Unsupported pair '${pair}'. Allowed pairs: ${Object.keys(ALLOWED_PAIRS).join(", ")}`);
         }
