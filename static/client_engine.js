@@ -8,6 +8,7 @@
 
     const ALLOWED_PAIRS = {
         GBPUSD: { symbol: "GBPUSD", kraken_pair: "GBPUSD", name: "GBP/USD", pip_size: 0.0001, decimals: 5 },
+        GBPJPY: { symbol: "GBPJPY", kraken_pair: "GBPJPY_CROSS", name: "GBP/JPY", pip_size: 0.01, decimals: 3 },
         EURUSD: { symbol: "EURUSD", kraken_pair: "EURUSD", name: "EUR/USD", pip_size: 0.0001, decimals: 5 },
         USDJPY: { symbol: "USDJPY", kraken_pair: "USDJPY", name: "USD/JPY", pip_size: 0.01, decimals: 3 },
         AUDUSD: { symbol: "AUDUSD", kraken_pair: "AUDUSD", name: "AUD/USD", pip_size: 0.0001, decimals: 5 },
@@ -82,6 +83,28 @@
     }
 
     async function fetchKrakenTf(krakenPair, intervalMin, limit) {
+        if (krakenPair === "GBPJPY_CROSS") {
+            const [gbpBars, jpyBars] = await Promise.all([
+                fetchKrakenTf("GBPUSD", intervalMin, limit),
+                fetchKrakenTf("USDJPY", intervalMin, limit),
+            ]);
+            const jpyMap = new Map(jpyBars.map((bar) => [bar.time, bar]));
+            const crossed = [];
+            for (const g of gbpBars) {
+                const j = jpyMap.get(g.time);
+                if (j) {
+                    crossed.push({
+                        time: g.time,
+                        open: g.open * j.open,
+                        high: g.high * j.high,
+                        low: g.low * j.low,
+                        close: g.close * j.close,
+                    });
+                }
+            }
+            return crossed;
+        }
+
         const url = `https://api.kraken.com/0/public/OHLC?pair=${encodeURIComponent(krakenPair)}&interval=${intervalMin}`;
         const resp = await fetch(url);
         if (!resp.ok) {
@@ -598,6 +621,7 @@
         if (!candles || candles.length < swingWindow * 2 + 1) {
             return def;
         }
+
         const swingHighs = [];
         const swingLows = [];
         for (let i = swingWindow; i < candles.length - swingWindow; i++) {
